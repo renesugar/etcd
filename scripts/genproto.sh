@@ -16,11 +16,11 @@ if [[ $(protoc --version | cut -f2 -d' ') != "3.5.1" ]]; then
 fi
 
 # directories containing protos to be built
-DIRS="./wal/walpb ./etcdserver/etcdserverpb ./raftsnap/snappb ./raft/raftpb ./mvcc/mvccpb ./lease/leasepb ./auth/authpb ./etcdserver/api/v3lock/v3lockpb ./etcdserver/api/v3election/v3electionpb"
+DIRS="./wal/walpb ./etcdserver/etcdserverpb ./etcdserver/api/snap/snappb ./raft/raftpb ./mvcc/mvccpb ./lease/leasepb ./auth/authpb ./etcdserver/api/v3lock/v3lockpb ./etcdserver/api/v3election/v3electionpb"
 
 # exact version of packages to build
-GOGO_PROTO_SHA="41168f6614b7bb144818ec8967b8c702705df564"
-GRPC_GATEWAY_SHA="61c34cc7e0c7a0d85e4237d665e622640279ff3d"
+GOGO_PROTO_SHA="1adfc126b41513cc696b209667c8656ea7aac67c"
+GRPC_GATEWAY_SHA="92583770e3f01b09a0d3e9bdf64321d8bebd48f2"
 SCHWAG_SHA="b7d0fc9aadaaae3d61aaadfc12e4a2f945514912"
 
 # set up self-contained GOPATH for building

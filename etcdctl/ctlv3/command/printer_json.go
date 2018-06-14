@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/coreos/etcd/snapshot"
+	"github.com/coreos/etcd/clientv3/snapshot"
 )
 
 type jsonPrinter struct{ printer }
@@ -30,6 +30,7 @@ func newJSONPrinter() printer {
 	}
 }
 
+func (p *jsonPrinter) EndpointHealth(r []epHealth) { printJSON(r) }
 func (p *jsonPrinter) EndpointStatus(r []epStatus) { printJSON(r) }
 func (p *jsonPrinter) EndpointHashKV(r []epHashKV) { printJSON(r) }
 func (p *jsonPrinter) DBStatus(r snapshot.Status)  { printJSON(r) }

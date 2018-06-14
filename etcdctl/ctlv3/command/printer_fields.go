@@ -18,9 +18,9 @@ import (
 	"fmt"
 
 	v3 "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/snapshot"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	spb "github.com/coreos/etcd/mvcc/mvccpb"
-	"github.com/coreos/etcd/snapshot"
 )
 
 type fieldsPrinter struct{ printer }
@@ -137,6 +137,16 @@ func (p *fieldsPrinter) MemberList(r v3.MemberListResponse) {
 		for _, u := range m.ClientURLs {
 			fmt.Printf("\"ClientURL\" : %q\n", u)
 		}
+		fmt.Println()
+	}
+}
+
+func (p *fieldsPrinter) EndpointHealth(hs []epHealth) {
+	for _, h := range hs {
+		fmt.Printf("\"Endpoint\" : %q\n", h.Ep)
+		fmt.Println(`"Health" :`, h.Health)
+		fmt.Println(`"Took" :`, h.Took)
+		fmt.Println(`"Error" :`, h.Error)
 		fmt.Println()
 	}
 }

@@ -72,8 +72,8 @@ const (
 var ErrProposalDropped = errors.New("raft proposal dropped")
 
 // lockedRand is a small wrapper around rand.Rand to provide
-// synchronization. Only the methods needed by the code are exposed
-// (e.g. Intn).
+// synchronization among multiple raft groups. Only the methods needed
+// by the code are exposed (e.g. Intn).
 type lockedRand struct {
 	mu   sync.Mutex
 	rand *rand.Rand
@@ -192,7 +192,7 @@ type Config struct {
 	// this feature would be in a situation where the Raft leader is used to
 	// compute the data of a proposal, for example, adding a timestamp from a
 	// hybrid logical clock to data in a monotonically increasing way. Forwarding
-	// should be disabled to prevent a follower with an innaccurate hybrid
+	// should be disabled to prevent a follower with an inaccurate hybrid
 	// logical clock from assigning the timestamp and then forwarding the data
 	// to the leader.
 	DisableProposalForwarding bool

@@ -18,7 +18,7 @@ import (
 	"os"
 
 	v3 "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/snapshot"
+	"github.com/coreos/etcd/clientv3/snapshot"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -27,6 +27,16 @@ type tablePrinter struct{ printer }
 
 func (tp *tablePrinter) MemberList(r v3.MemberListResponse) {
 	hdr, rows := makeMemberListTable(r)
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader(hdr)
+	for _, row := range rows {
+		table.Append(row)
+	}
+	table.SetAlignment(tablewriter.ALIGN_RIGHT)
+	table.Render()
+}
+func (tp *tablePrinter) EndpointHealth(r []epHealth) {
+	hdr, rows := makeEndpointHealthTable(r)
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader(hdr)
 	for _, row := range rows {

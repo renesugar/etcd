@@ -69,8 +69,8 @@ This is a generated documentation. Please read the proto files for more.
 | Alarm | AlarmRequest | AlarmResponse | Alarm activates, deactivates, and queries alarms regarding cluster health. |
 | Status | StatusRequest | StatusResponse | Status gets the status of the member. |
 | Defragment | DefragmentRequest | DefragmentResponse | Defragment defragments a member's backend database to recover storage space. |
-| Hash | HashRequest | HashResponse | Hash computes the hash of the KV's backend. This is designed for testing; do not use this in production when there are ongoing transactions. |
-| HashKV | HashKVRequest | HashKVResponse | HashKV computes the hash of all MVCC keys up to a given revision. |
+| Hash | HashRequest | HashResponse | Hash computes the hash of whole backend keyspace, including key, lease, and other buckets in storage. This is designed for testing ONLY! Do not rely on this in production with ongoing transactions, since Hash operation does not hold MVCC locks. Use "HashKV" API instead for "key" bucket consistency checks. |
+| HashKV | HashKVRequest | HashKVResponse | HashKV computes the hash of all MVCC keys up to a given revision. It only iterates "key" bucket in backend storage. |
 | Snapshot | SnapshotRequest | SnapshotResponse | Snapshot sends a snapshot of the entire backend from a member over a stream to a client. |
 | MoveLeader | MoveLeaderRequest | MoveLeaderResponse | MoveLeader requests current leader node to transfer its leadership to transferee. |
 
@@ -836,6 +836,7 @@ From google paxosdb paper: Our implementation hinges around a powerful primitive
 | filters | filters filter the events at server side before it sends back to the watcher. | (slice of) FilterType |
 | prev_kv | If prev_kv is set, created watcher gets the previous KV before the event happens. If the previous KV is already compacted, nothing will be returned. | bool |
 | watch_id | If watch_id is provided and non-zero, it will be assigned to this watcher. Since creating a watcher in etcd is not a synchronous operation, this can be used ensure that ordering is correct when creating multiple watchers on the same stream. Creating a watcher with an ID already in use on the stream will cause an error to be returned. | int64 |
+| fragment | fragment enables splitting large revisions into multiple watch responses. | bool |
 
 
 
@@ -859,6 +860,7 @@ From google paxosdb paper: Our implementation hinges around a powerful primitive
 | canceled | canceled is set to true if the response is for a cancel watch request. No further events will be sent to the canceled watcher. | bool |
 | compact_revision | compact_revision is set to the minimum index if a watcher tries to watch at a compacted index.  This happens when creating a watcher at a compacted revision or the watcher cannot catch up with the progress of the key-value store.  The client should treat the watcher as canceled and should not try to create any watcher with the same start_revision again. | int64 |
 | cancel_reason | cancel_reason indicates the reason for canceling the watcher. | string |
+| fragment | framgment is true if large watch response was split over multiple responses. | bool |
 | events |  | (slice of) mvccpb.Event |
 
 

@@ -21,8 +21,11 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/coreos/etcd/integration"
@@ -145,7 +148,7 @@ func TestMaintenanceSnapshotErrorInflight(t *testing.T) {
 	clus.Members[0].Stop(t)
 	dpath := filepath.Join(clus.Members[0].DataDir, "member", "snap", "db")
 	b := backend.NewDefaultBackend(dpath)
-	s := mvcc.NewStore(b, &lease.FakeLessor{}, nil)
+	s := mvcc.NewStore(zap.NewExample(), b, &lease.FakeLessor{}, nil)
 	rev := 100000
 	for i := 2; i <= rev; i++ {
 		s.Put([]byte(fmt.Sprintf("%10d", i)), bytes.Repeat([]byte("a"), 1024), lease.NoLease)
@@ -186,7 +189,7 @@ func TestMaintenanceSnapshotErrorInflight(t *testing.T) {
 	// 300ms left and expect timeout while snapshot reading is in progress
 	time.Sleep(700 * time.Millisecond)
 	_, err = io.Copy(ioutil.Discard, rc2)
-	if err != nil && err != context.DeadlineExceeded {
-		t.Errorf("expected %v, got %v", context.DeadlineExceeded, err)
+	if err != nil && !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) {
+		t.Errorf("expected %v from gRPC, got %v", context.DeadlineExceeded, err)
 	}
 }

@@ -1,7 +1,96 @@
 
+
+Previous change logs can be found at [CHANGELOG-3.0](https://github.com/coreos/etcd/blob/master/CHANGELOG-3.0.md).
+
+
+## [v3.1.18](https://github.com/coreos/etcd/releases/tag/v3.1.18) (TBD 2018-06)
+
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.17...v3.1.18) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
+
+### Metrics, Monitoring
+
+- Add [`etcd_server_version`](https://github.com/coreos/etcd/pull/8960) Prometheus metric.
+  - To replace [Kubernetes `etcd-version-monitor`](https://github.com/coreos/etcd/issues/8948).
+
+### Go
+
+- Compile with [*Go 1.8.7*](https://golang.org/doc/devel/release.html#go1.8).
+
+
+## [v3.1.17](https://github.com/coreos/etcd/releases/tag/v3.1.17) (2018-06-06)
+
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.16...v3.1.17) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
+
+### etcd server
+
+- Fix [v3 snapshot recovery](https://github.com/coreos/etcd/issues/7628).
+  - A follower receives a leader snapshot to be persisted as a `[SNAPSHOT-INDEX].snap.db` file on disk.
+  - Now, server [ensures that the incoming snapshot be persisted on disk before loading it](https://github.com/coreos/etcd/pull/7876).
+  - Otherwise, index mismatch happens and triggers server-side panic (e.g. newer WAL entry with outdated snapshot index).
+
+### Go
+
+- Compile with [*Go 1.8.7*](https://golang.org/doc/devel/release.html#go1.8).
+
+
+## [v3.1.16](https://github.com/coreos/etcd/releases/tag/v3.1.16) (2018-05-31)
+
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.15...v3.1.16) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
+
+### etcd server
+
+- Fix [`mvcc` server panic from restore operation](https://github.com/coreos/etcd/pull/9775).
+  - Let's assume that a watcher had been requested with a future revision X and sent to node A that became network-partitioned thereafter. Meanwhile, cluster makes progress. Then when the partition gets removed, the leader sends a snapshot to node A. Previously if the snapshot's latest revision is still lower than the watch revision X,  **etcd server panicked** during snapshot restore operation.
+  - Now, this server-side panic has been fixed.
+
+### Go
+
+- Compile with [*Go 1.8.7*](https://golang.org/doc/devel/release.html#go1.8).
+
+
+## [v3.1.15](https://github.com/coreos/etcd/releases/tag/v3.1.15) (2018-05-09)
+
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.14...v3.1.15) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
+
+### etcd server
+
+- Purge old [`*.snap.db` snapshot files](https://github.com/coreos/etcd/pull/7967).
+  - Previously, etcd did not respect `--max-snapshots` flag to purge old `*.snap.db` files.
+  - Now, etcd purges old `*.snap.db` files to keep maximum `--max-snapshots` number of files on disk.
+
+### Go
+
+- Compile with [*Go 1.8.7*](https://golang.org/doc/devel/release.html#go1.8).
+
+
+## [v3.1.14](https://github.com/coreos/etcd/releases/tag/v3.1.14) (2018-04-24)
+
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.13...v3.1.14) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
+
+### Metrics, Monitoring
+
+- Add [`etcd_server_is_leader`](https://github.com/coreos/etcd/pull/9587) Prometheus metric.
+
+### etcd server
+
+- Add [`--initial-election-tick-advance`](https://github.com/coreos/etcd/pull/9591) flag to configure initial election tick fast-forward.
+  - By default, `--initial-election-tick-advance=true`, then local member fast-forwards election ticks to speed up "initial" leader election trigger.
+  - This benefits the case of larger election ticks. For instance, cross datacenter deployment may require longer election timeout of 10-second. If true, local node does not need wait up to 10-second. Instead, forwards its election ticks to 8-second, and have only 2-second left before leader election.
+  - Major assumptions are that: cluster has no active leader thus advancing ticks enables faster leader election. Or cluster already has an established leader, and rejoining follower is likely to receive heartbeats from the leader after tick advance and before election timeout.
+  - However, when network from leader to rejoining follower is congested, and the follower does not receive leader heartbeat within left election ticks, disruptive election has to happen thus affecting cluster availabilities.
+  - Now, this can be disabled by setting `--initial-election-tick-advance=false`.
+  - Disabling this would slow down initial bootstrap process for cross datacenter deployments. Make tradeoffs by configuring `--initial-election-tick-advance` at the cost of slow initial bootstrap.
+  - If single-node, it advances ticks regardless.
+  - Address [disruptive rejoining follower node](https://github.com/coreos/etcd/issues/9333).
+
+### Go
+
+- Compile with [*Go 1.8.7*](https://golang.org/doc/devel/release.html#go1.8).
+
+
 ## [v3.1.13](https://github.com/coreos/etcd/releases/tag/v3.1.13) (2018-03-29)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.12...v3.1.13) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.12...v3.1.13) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Improved
 
@@ -20,15 +109,16 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.12...v3.1.13) and
 
 ## [v3.1.12](https://github.com/coreos/etcd/releases/tag/v3.1.12) (2018-03-08)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.11...v3.1.12) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.11...v3.1.12) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Fixed: v3
+### etcd server
 
 - Fix [`mvcc` "unsynced" watcher restore operation](https://github.com/coreos/etcd/pull/9297).
   - "unsynced" watcher is watcher that needs to be in sync with events that have happened.
   - That is, "unsynced" watcher is the slow watcher that was requested on old revision.
   - "unsynced" watcher restore operation was not correctly populating its underlying watcher group.
   - Which possibly causes [missing events from "unsynced" watchers](https://github.com/coreos/etcd/issues/9086).
+  - A node gets network partitioned with a watcher on a future revision, and falls behind receiving a leader snapshot after partition gets removed. When applying this snapshot, etcd watch storage moves current synced watchers to unsynced since sync watchers might have become stale during network partition. And reset synced watcher group to restart watcher routines. Previously, there was a bug when moving from synced watcher group to unsynced, thus client would miss events when the watcher was requested to the network-partitioned node.
 
 ### Go
 
@@ -37,9 +127,9 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.11...v3.1.12) and
 
 ## [v3.1.11](https://github.com/coreos/etcd/releases/tag/v3.1.11) (2017-11-28)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.10...v3.1.11) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.10...v3.1.11) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Fixed: v3
+### etcd server
 
 - [#8411](https://github.com/coreos/etcd/issues/8411),[#8806](https://github.com/coreos/etcd/pull/8806) backport "mvcc: sending events after restore"
 - [#8009](https://github.com/coreos/etcd/issues/8009),[#8902](https://github.com/coreos/etcd/pull/8902) backport coreos/bbolt v1.3.1-coreos.5
@@ -51,7 +141,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.10...v3.1.11) and
 
 ## [v3.1.10](https://github.com/coreos/etcd/releases/tag/v3.1.10) (2017-07-14)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.9...v3.1.10) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.9...v3.1.10) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Added
 
@@ -66,9 +156,9 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.9...v3.1.10) and 
 
 ## [v3.1.9](https://github.com/coreos/etcd/releases/tag/v3.1.9) (2017-06-09)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.8...v3.1.9) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.8...v3.1.9) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Fixed
+### etcd server
 
 - Allow v2 snapshot over 512MB.
 
@@ -79,7 +169,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.8...v3.1.9) and [
 
 ## [v3.1.8](https://github.com/coreos/etcd/releases/tag/v3.1.8) (2017-05-19)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.7...v3.1.8) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.7...v3.1.8) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Go
 
@@ -88,7 +178,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.7...v3.1.8) and [
 
 ## [v3.1.7](https://github.com/coreos/etcd/releases/tag/v3.1.7) (2017-04-28)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.6...v3.1.7) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.6...v3.1.7) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Go
 
@@ -97,15 +187,12 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.6...v3.1.7) and [
 
 ## [v3.1.6](https://github.com/coreos/etcd/releases/tag/v3.1.6) (2017-04-19)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.5...v3.1.6) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.5...v3.1.6) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Other
-
-- Remove auth check in Status API.
-
-### Fixed
+### etcd server
 
 - Fill in Auth API response header.
+- Remove auth check in Status API.
 
 ### Go
 
@@ -114,16 +201,16 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.5...v3.1.6) and [
 
 ## [v3.1.5](https://github.com/coreos/etcd/releases/tag/v3.1.5) (2017-03-27)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.4...v3.1.5) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.4...v3.1.5) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Added
-
-- Add `/etc/nsswitch.conf` file to alpine-based Docker image.
-
-### Fixed
+### etcd server
 
 - Fix raft memory leak issue.
 - Fix Windows file path issues.
+
+### Other
+
+- Add `/etc/nsswitch.conf` file to alpine-based Docker image.
 
 ### Go
 
@@ -132,7 +219,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.4...v3.1.5) and [
 
 ## [v3.1.4](https://github.com/coreos/etcd/releases/tag/v3.1.4) (2017-03-22)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.3...v3.1.4) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.3...v3.1.4) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Go
 
@@ -141,11 +228,15 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.3...v3.1.4) and [
 
 ## [v3.1.3](https://github.com/coreos/etcd/releases/tag/v3.1.3) (2017-03-10)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.2...v3.1.3) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.2...v3.1.3) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Fixed
+### etcd gateway
 
 - Fix `etcd gateway` schema handling in DNS discovery.
+- Fix sd_notify behaviors in `gateway`, `grpc-proxy`.
+
+### gRPC Proxy
+
 - Fix sd_notify behaviors in `gateway`, `grpc-proxy`.
 
 ### Other
@@ -159,9 +250,9 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.2...v3.1.3) and [
 
 ## [v3.1.2](https://github.com/coreos/etcd/releases/tag/v3.1.2) (2017-02-24)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.1...v3.1.2) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.1...v3.1.2) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
-### Fixed
+### etcd gateway
 
 - Fix `etcd gateway` with multiple endpoints.
 
@@ -176,7 +267,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.1...v3.1.2) and [
 
 ## [v3.1.1](https://github.com/coreos/etcd/releases/tag/v3.1.1) (2017-02-17)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.1.0...v3.1.1) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.1.0...v3.1.1) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Go
 
@@ -185,7 +276,7 @@ See [code changes](https://github.com/coreos/etcd/compare/v3.1.0...v3.1.1) and [
 
 ## [v3.1.0](https://github.com/coreos/etcd/releases/tag/v3.1.0) (2017-01-20)
 
-See [code changes](https://github.com/coreos/etcd/compare/v3.0.0...v3.1.0) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes.
+See [code changes](https://github.com/coreos/etcd/compare/v3.0.0...v3.1.0) and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md) for any breaking changes. **Again, before running upgrades from any previous release, please make sure to read change logs below and [v3.1 upgrade guide](https://github.com/coreos/etcd/blob/master/Documentation/upgrades/upgrade_3_1.md).**
 
 ### Improved
 
@@ -212,30 +303,13 @@ See [security doc](https://github.com/coreos/etcd/blob/master/Documentation/op-g
   - `TLSConfig.ServerName` is ignored with user-provided certificates for backwards compatibility; to be deprecated.
   - For example, `etcd --discovery-srv=example.com` will only authenticate peers/clients when the provided certs have root domain `example.com` as an entry in Subject Alternative Name (SAN) field.
 
-### Added
+### etcd server
 
 - Automatic leadership transfer when leader steps down.
 - etcd flags
   - `--strict-reconfig-check` flag is set by default.
   - Add `--log-output` flag.
   - Add `--metrics` flag.
-- v3 client
-  - Add `SetEndpoints` method; update endpoints at runtime.
-  - Add `Sync` method; auto-update endpoints at runtime.
-  - Add `Lease TimeToLive` API; fetch lease information.
-  - replace Config.Logger field with global logger.
-  - Get API responses are sorted in ascending order by default.
-- v3 etcdctl
-  - Add `lease timetolive` command.
-  - Add `--print-value-only` flag to get command.
-  - Add `--dest-prefix` flag to make-mirror command.
-  - `get` command responses are sorted in ascending order by default.
-- `recipes` now conform to sessions defined in `clientv3/concurrency`.
-- ACI has symlinks to `/usr/local/bin/etcd*`.
-- Experimental gRPC proxy feature.
-
-### Other
-
 - etcd uses default route IP if advertise URL is not given.
 - Cluster rejects removing members if quorum will be lost.
 - Discovery now has upper limit for waiting on retries.
@@ -247,6 +321,30 @@ See [security doc](https://github.com/coreos/etcd/blob/master/Documentation/op-g
   - When `--auto-compaction-retention=10`, compactor uses revision 100 for compact revision where revision 100 is the latest revision fetched from 10 hours ago.
   - If compaction succeeds or requested revision has already been compacted, it resets period timer and starts over with new historical revision records (e.g. restart revision collect and compact for the next 10-hour period).
   - If compaction fails, it retries in 5 minutes.
+
+### client v3
+
+- Add `SetEndpoints` method; update endpoints at runtime.
+- Add `Sync` method; auto-update endpoints at runtime.
+- Add `Lease TimeToLive` API; fetch lease information.
+- replace Config.Logger field with global logger.
+- Get API responses are sorted in ascending order by default.
+
+### etcdctl v3
+
+- Add `lease timetolive` command.
+- Add `--print-value-only` flag to get command.
+- Add `--dest-prefix` flag to make-mirror command.
+- `get` command responses are sorted in ascending order by default.
+
+### gRPC Proxy
+
+- Experimental gRPC proxy feature.
+
+### Other
+
+- `recipes` now conform to sessions defined in `clientv3/concurrency`.
+- ACI has symlinks to `/usr/local/bin/etcd*`.
 
 ### Go
 

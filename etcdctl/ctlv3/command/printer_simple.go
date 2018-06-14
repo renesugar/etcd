@@ -16,12 +16,13 @@ package command
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/snapshot"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/pkg/types"
-	"github.com/coreos/etcd/snapshot"
 )
 
 type simplePrinter struct {
@@ -142,6 +143,16 @@ func (s *simplePrinter) MemberList(resp v3.MemberListResponse) {
 	}
 }
 
+func (s *simplePrinter) EndpointHealth(hs []epHealth) {
+	for _, h := range hs {
+		if h.Error == "" {
+			fmt.Fprintf(os.Stderr, "%s is healthy: successfully committed proposal: took = %v\n", h.Ep, h.Took)
+		} else {
+			fmt.Fprintf(os.Stderr, "%s is unhealthy: failed to commit proposal: %v", h.Ep, h.Error)
+		}
+	}
+}
+
 func (s *simplePrinter) EndpointStatus(statusList []epStatus) {
 	_, rows := makeEndpointStatusTable(statusList)
 	for _, row := range rows {
@@ -178,12 +189,12 @@ func (s *simplePrinter) RoleGet(role string, r v3.AuthRoleGetResponse) {
 	printRange := func(perm *v3.Permission) {
 		sKey := string(perm.Key)
 		sRangeEnd := string(perm.RangeEnd)
-		if strings.Compare(sRangeEnd, "\x00") != 0 {
+		if sRangeEnd != "\x00" {
 			fmt.Printf("\t[%s, %s)", sKey, sRangeEnd)
 		} else {
 			fmt.Printf("\t[%s, <open ended>", sKey)
 		}
-		if strings.Compare(v3.GetPrefixRangeEnd(sKey), sRangeEnd) == 0 {
+		if v3.GetPrefixRangeEnd(sKey) == sRangeEnd {
 			fmt.Printf(" (prefix %s)", sKey)
 		}
 		fmt.Printf("\n")
@@ -229,7 +240,7 @@ func (s *simplePrinter) RoleRevokePermission(role string, key string, end string
 		fmt.Printf("Permission of key %s is revoked from role %s\n", key, role)
 		return
 	}
-	if strings.Compare(end, "\x00") != 0 {
+	if end != "\x00" {
 		fmt.Printf("Permission of range [%s, %s) is revoked from role %s\n", key, end, role)
 	} else {
 		fmt.Printf("Permission of range [%s, <open ended> is revoked from role %s\n", key, role)

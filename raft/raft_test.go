@@ -303,8 +303,15 @@ func TestLeaderElectionPreVote(t *testing.T) {
 
 func testLeaderElection(t *testing.T, preVote bool) {
 	var cfg func(*Config)
+	candState := StateType(StateCandidate)
+	candTerm := uint64(1)
 	if preVote {
 		cfg = preVoteConfig
+		// In pre-vote mode, an election that fails to complete
+		// leaves the node in pre-candidate state without advancing
+		// the term.
+		candState = StatePreCandidate
+		candTerm = 0
 	}
 	tests := []struct {
 		*network
@@ -313,8 +320,8 @@ func testLeaderElection(t *testing.T, preVote bool) {
 	}{
 		{newNetworkWithConfig(cfg, nil, nil, nil), StateLeader, 1},
 		{newNetworkWithConfig(cfg, nil, nil, nopStepper), StateLeader, 1},
-		{newNetworkWithConfig(cfg, nil, nopStepper, nopStepper), StateCandidate, 1},
-		{newNetworkWithConfig(cfg, nil, nopStepper, nopStepper, nil), StateCandidate, 1},
+		{newNetworkWithConfig(cfg, nil, nopStepper, nopStepper), candState, candTerm},
+		{newNetworkWithConfig(cfg, nil, nopStepper, nopStepper, nil), candState, candTerm},
 		{newNetworkWithConfig(cfg, nil, nopStepper, nopStepper, nil, nil), StateLeader, 1},
 
 		// three logs further along than 0, but in the same term so rejections
@@ -327,23 +334,11 @@ func testLeaderElection(t *testing.T, preVote bool) {
 	for i, tt := range tests {
 		tt.send(pb.Message{From: 1, To: 1, Type: pb.MsgHup})
 		sm := tt.network.peers[1].(*raft)
-		var expState StateType
-		var expTerm uint64
-		if tt.state == StateCandidate && preVote {
-			// In pre-vote mode, an election that fails to complete
-			// leaves the node in pre-candidate state without advancing
-			// the term.
-			expState = StatePreCandidate
-			expTerm = 0
-		} else {
-			expState = tt.state
-			expTerm = tt.expTerm
+		if sm.state != tt.state {
+			t.Errorf("#%d: state = %s, want %s", i, sm.state, tt.state)
 		}
-		if sm.state != expState {
-			t.Errorf("#%d: state = %s, want %s", i, sm.state, expState)
-		}
-		if g := sm.Term; g != expTerm {
-			t.Errorf("#%d: term = %d, want %d", i, g, expTerm)
+		if g := sm.Term; g != tt.expTerm {
+			t.Errorf("#%d: term = %d, want %d", i, g, tt.expTerm)
 		}
 	}
 }
@@ -1182,7 +1177,7 @@ func TestCommit(t *testing.T) {
 		storage.Append(tt.logs)
 		storage.hardState = pb.HardState{Term: tt.smTerm}
 
-		sm := newTestRaft(1, []uint64{1}, 5, 1, storage)
+		sm := newTestRaft(1, []uint64{1}, 10, 2, storage)
 		for j := 0; j < len(tt.matches); j++ {
 			sm.setProgress(uint64(j)+1, tt.matches[j], tt.matches[j]+1, false)
 		}
@@ -2733,7 +2728,7 @@ func TestRestoreWithLearner(t *testing.T) {
 	}
 
 	storage := NewMemoryStorage()
-	sm := newTestLearnerRaft(3, []uint64{1, 2}, []uint64{3}, 10, 1, storage)
+	sm := newTestLearnerRaft(3, []uint64{1, 2}, []uint64{3}, 8, 2, storage)
 	if ok := sm.restore(s); !ok {
 		t.Error("restore fail, want succeed")
 	}
@@ -4070,16 +4065,16 @@ func (nw *network) drop(from, to uint64, perc float64) {
 }
 
 func (nw *network) cut(one, other uint64) {
-	nw.drop(one, other, 1)
-	nw.drop(other, one, 1)
+	nw.drop(one, other, 2.0) // always drop
+	nw.drop(other, one, 2.0) // always drop
 }
 
 func (nw *network) isolate(id uint64) {
 	for i := 0; i < len(nw.peers); i++ {
 		nid := uint64(i) + 1
 		if nid != id {
-			nw.drop(id, nid, 1.0)
-			nw.drop(nid, id, 1.0)
+			nw.drop(id, nid, 1.0) // always drop
+			nw.drop(nid, id, 1.0) // always drop
 		}
 	}
 }
